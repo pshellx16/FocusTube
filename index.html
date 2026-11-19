@@ -35,6 +35,7 @@
     html {
       -webkit-text-size-adjust: 100%;
       text-size-adjust: 100%;
+      overflow-x: clip;
     }
 
     body {
@@ -43,19 +44,25 @@
       color: var(--text);
       min-height: 100vh;
       min-height: 100dvh;
+      overflow-x: clip;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 20px 16px;
-      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      padding:
+        max(20px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        calc(20px + env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
     }
 
     header,
+    .idle-subtitle,
     .controls-bar,
     .status-msg,
     .player-wrapper,
     .below-player-bar,
-    .playlist-panel {
+    .playlist-panel,
+    .privacy-footer {
       width: 100%;
       max-width: var(--content-max);
     }
@@ -79,10 +86,61 @@
       color: var(--accent);
     }
 
+    .idle-subtitle {
+      display: none;
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
     .controls-bar {
       display: flex;
       gap: 8px;
       margin-bottom: 8px;
+    }
+
+    /* ---------------- IDLE STATE (Before any link is loaded) ---------------- */
+    body:not(.has-media) .player-wrapper,
+    body:not(.has-media) .below-player-bar,
+    body:not(.has-media) .playlist-panel {
+      display: none !important;
+    }
+
+    body:not(.has-media) header,
+    body:not(.has-media) .idle-subtitle,
+    body:not(.has-media) .controls-bar,
+    body:not(.has-media) .status-msg {
+      max-width: 720px;
+    }
+
+    body:not(.has-media) header {
+      position: relative;
+      justify-content: center;
+      margin-top: auto;
+      margin-bottom: 8px;
+    }
+
+    body:not(.has-media) header #clearBtn {
+      position: absolute;
+      right: 0;
+    }
+
+    body:not(.has-media) h1 {
+      font-size: 1.75rem;
+    }
+
+    body:not(.has-media) .idle-subtitle {
+      display: block;
+    }
+
+    body:not(.has-media) .status-msg {
+      text-align: center;
+      margin-bottom: auto;
+    }
+
+    body:not(.has-media) .privacy-footer {
+      margin-top: 24px;
     }
 
     /* >= 16px prevents iOS Safari auto-zoom on input focus */
@@ -119,11 +177,28 @@
       cursor: pointer;
       white-space: nowrap;
       touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
       transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
     }
 
-    button:hover:not(:disabled) {
-      background: var(--surface-hover);
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid #8ab4f8;
+      outline-offset: 2px;
+    }
+
+    @media (hover: hover) {
+      button:hover:not(:disabled) {
+        background: var(--surface-hover);
+      }
+
+      button.primary:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+    }
+
+    button:active:not(:disabled) {
+      opacity: 0.85;
     }
 
     button:disabled {
@@ -135,10 +210,6 @@
       background: var(--accent);
       border-color: var(--accent);
       color: #fff;
-    }
-
-    button.primary:hover:not(:disabled) {
-      background: var(--accent-hover);
     }
 
     button.active-toggle {
@@ -158,6 +229,37 @@
       color: #8ab4f8;
     }
 
+    body.has-media:not(.focus-mode) {
+      padding-top: max(12px, env(safe-area-inset-top));
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
+    body.has-media header {
+      margin-bottom: 8px;
+    }
+
+    body.has-media .controls-bar {
+      margin-bottom: 8px;
+    }
+
+    body.has-media .status-msg:empty {
+      display: none;
+    }
+
+    body.has-media .below-player-bar {
+      margin-top: 8px;
+      padding: 8px 12px;
+    }
+
+    body.has-media .playlist-panel {
+      margin-top: 8px;
+      padding: 8px 12px;
+    }
+
+    body.has-media .privacy-footer {
+      padding-top: 10px;
+    }
+
     /* Player Container (min 200x200 enforced for YouTube policy compliance) */
     .player-wrapper {
       aspect-ratio: 16 / 9;
@@ -167,14 +269,30 @@
       border-radius: var(--player-radius);
       overflow: hidden;
       border: 1px solid var(--border);
-      transition: max-width 0.2s ease;
+      transition: max-width 0.2s ease, width 0.2s ease;
+    }
+
+    /* Fit full player + control panel on desktop/laptop screens without scrolling */
+    @media (min-width: 641px) {
+      body.has-media:not(.focus-mode):not(.theater-mode) {
+        --chrome-reserve: 215px;
+      }
+
+      body.has-media.has-playlist:not(.focus-mode):not(.theater-mode) {
+        --chrome-reserve: 275px;
+      }
+
+      body.has-media:not(.focus-mode):not(.theater-mode) .player-wrapper {
+        width: min(100%, var(--content-max), max(356px, calc((100dvh - var(--chrome-reserve)) * 16 / 9)));
+      }
     }
 
     .player-wrapper:fullscreen,
     .player-wrapper:-webkit-full-screen {
-      width: 100%;
-      height: 100%;
-      max-width: none;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
       border: none;
       border-radius: 0;
     }
@@ -274,9 +392,155 @@
       text-align: center;
     }
 
+    .playlist-meta-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     .playlist-total-hint {
       font-size: 12.5px;
       color: var(--muted);
+    }
+
+    .playlist-tray {
+      position: relative;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      max-height: 360px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      gap: 10px;
+      scrollbar-width: thin;
+      scrollbar-color: #3a3a3a transparent;
+    }
+
+    .playlist-tray[hidden] {
+      display: none;
+    }
+
+    .playlist-item {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      text-align: left;
+      padding: 0;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #141414;
+      overflow: hidden;
+      white-space: normal;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    @media (hover: hover) {
+      .playlist-item:hover:not(:disabled) {
+        background: #1f1f1f;
+        border-color: #4a4a4a;
+      }
+    }
+
+    .playlist-item.is-active {
+      border-color: var(--accent);
+      background: #211515;
+    }
+
+    .playlist-thumb {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #0b0b0b;
+      overflow: hidden;
+    }
+
+    .playlist-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .playlist-num-badge {
+      position: absolute;
+      top: 6px;
+      left: 6px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .playlist-item.is-active .playlist-num-badge {
+      background: var(--accent);
+    }
+
+    .playlist-dur-badge {
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.82);
+      color: #f1f1f1;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.2;
+      display: none;
+    }
+
+    .playlist-dur-badge.has-duration {
+      display: inline-block;
+    }
+
+    .playlist-item-meta {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 8px 9px;
+      min-height: 44px;
+    }
+
+    .playlist-item-title {
+      font-size: 12.5px;
+      line-height: 1.35;
+      color: var(--text);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
+      flex: 1;
+    }
+
+    .playlist-item-state {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .playlist-item.is-active .playlist-item-state {
+      color: #ff6b63;
+    }
+
+    .privacy-footer {
+      margin-top: auto;
+      padding-top: 18px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      opacity: 0.78;
+      transition: max-width 0.2s ease;
     }
 
     /* ---------------- FOCUS MODE (Policy-safe: non-overlapping top bar) ---------------- */
@@ -333,7 +597,8 @@
     body.focus-mode .controls-bar,
     body.focus-mode .status-msg,
     body.focus-mode .below-player-bar,
-    body.focus-mode .playlist-panel {
+    body.focus-mode .playlist-panel,
+    body.focus-mode .privacy-footer {
       display: none !important;
     }
 
@@ -355,10 +620,12 @@
     }
 
     @media (min-width: 900px) {
-      body.theater-mode .player-wrapper {
+      body.theater-mode:not(.focus-mode) .player-wrapper {
         flex: 1 1 0%;
+        width: 100%;
         max-width: var(--content-max-wide);
         min-height: 270px;
+        max-height: calc(100dvh - 180px);
         aspect-ratio: auto;
         height: auto;
       }
@@ -367,7 +634,8 @@
       body.theater-mode .controls-bar,
       body.theater-mode .status-msg,
       body.theater-mode .below-player-bar,
-      body.theater-mode .playlist-panel {
+      body.theater-mode .playlist-panel,
+      body.theater-mode .privacy-footer {
         max-width: var(--content-max-wide);
       }
     }
@@ -375,8 +643,11 @@
     /* ---------------- MOBILE (Phones) ---------------- */
     @media (max-width: 640px) {
       body {
-        padding: 12px 10px;
-        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        padding:
+          max(12px, env(safe-area-inset-top))
+          max(10px, env(safe-area-inset-right))
+          calc(12px + env(safe-area-inset-bottom))
+          max(10px, env(safe-area-inset-left));
       }
 
       header {
@@ -394,13 +665,15 @@
 
       .controls-bar button {
         flex: 1;
-        padding: 11px 8px;
+        min-height: 42px;
+        padding: 10px 10px;
         font-size: 14px;
       }
 
       .below-player-bar {
         flex-direction: column;
         align-items: stretch;
+        padding: 10px 12px;
       }
 
       .now-playing-info {
@@ -410,15 +683,38 @@
 
       .view-mode-buttons {
         justify-content: stretch;
+        flex-wrap: wrap;
       }
 
       .view-mode-buttons button {
-        flex: 1;
+        flex: 1 1 auto;
+        min-height: 40px;
+        padding: 9px 10px;
+      }
+
+      .playlist-panel {
+        padding: 10px 12px;
       }
 
       .playlist-nav-group {
+        width: 100%;
         flex-wrap: wrap;
         justify-content: center;
+      }
+
+      .playlist-nav-group button {
+        min-height: 38px;
+      }
+
+      .playlist-meta-group {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .playlist-tray {
+        grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+        max-height: 300px;
+        gap: 8px;
       }
 
       .player-wrapper {
@@ -431,19 +727,45 @@
         display: none;
       }
 
+      .playlist-nav-group {
+        gap: 6px;
+      }
+
+      .playlist-nav-group button {
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+
       .jump-input {
-        width: 68px;
+        width: 60px;
+        padding: 7px 6px !important;
       }
 
       .playlist-total-hint {
+        font-size: 12px;
+      }
+
+      .playlist-tray {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .playlist-item-meta {
+        padding: 6px 7px;
+        min-height: 38px;
+      }
+
+      .playlist-item-title {
         font-size: 12px;
       }
     }
 
     @media (min-width: 1400px) {
       body {
-        padding: 28px 24px;
-        padding-bottom: calc(28px + env(safe-area-inset-bottom));
+        padding:
+          max(28px, env(safe-area-inset-top))
+          max(24px, env(safe-area-inset-right))
+          calc(28px + env(safe-area-inset-bottom))
+          max(24px, env(safe-area-inset-left));
       }
 
       h1 {
@@ -454,7 +776,11 @@
     /* Short landscape viewports (rotated phone): keeps player >= 200px tall */
     @media (max-height: 520px) and (orientation: landscape) {
       body:not(.focus-mode) {
-        padding: 8px 14px;
+        padding:
+          max(8px, env(safe-area-inset-top))
+          max(14px, env(safe-area-inset-right))
+          calc(8px + env(safe-area-inset-bottom))
+          max(14px, env(safe-area-inset-left));
       }
 
       body:not(.focus-mode) header {
@@ -468,35 +794,50 @@
       body:not(.focus-mode) .player-wrapper {
         width: min(100%, max(356px, calc((100dvh - 125px) * 16 / 9)));
       }
+
+      body:not(.focus-mode) .playlist-tray {
+        max-height: 220px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
   </style>
 </head>
 <body>
 
   <!-- Non-overlapping Focus Mode Top Bar -->
-  <div class="focus-top-bar" id="focusTopBar">
+  <div class="focus-top-bar">
     <span class="focus-title-text" id="focusTitleText">Focus Mode</span>
-    <button class="exit-focus-btn" onclick="setFocusMode(false)">✕ Exit Focus</button>
+    <button type="button" class="exit-focus-btn" onclick="setFocusMode(false)">✕ Exit Focus</button>
   </div>
 
   <header>
     <h1>Focus<span>Tube</span></h1>
-    <button onclick="clearPlayer()" title="Reset player">Clear</button>
+    <button type="button" id="clearBtn" onclick="clearPlayer()" title="Reset player" hidden>Clear</button>
   </header>
+
+  <p class="idle-subtitle">Distraction-free YouTube player for focused study and work.</p>
 
   <div class="controls-bar">
     <input
       type="text"
       id="ytInput"
-      placeholder="YouTube video / playlist link paste karein (auto-play)"
+      placeholder="Paste a YouTube video or playlist link (auto-plays)"
       autocomplete="off"
       autocapitalize="off"
       spellcheck="false"
       inputmode="url"
       enterkeyhint="go"
     />
-    <button class="primary" onclick="handlePlay()">Play</button>
-    <button onclick="pasteAndPlay()">Paste &amp; Play</button>
+    <button type="button" class="primary" onclick="handlePlay()">Play</button>
+    <button type="button" onclick="pasteAndPlay()">Paste &amp; Play</button>
   </div>
 
   <div class="status-msg" id="statusMsg" role="status" aria-live="polite"></div>
@@ -507,15 +848,16 @@
   </div>
 
   <!-- Info + Mode Buttons -->
-  <div class="below-player-bar" id="belowPlayerBar">
+  <div class="below-player-bar">
     <div class="now-playing-info">
       <span class="count-badge" id="videoCountBadge">Ready</span>
-      <span class="video-title-text" id="currentVideoTitle">Koi bhi video ya playlist link paste karein</span>
+      <span class="video-title-text" id="currentVideoTitle">Paste any YouTube video or playlist link to start</span>
     </div>
     <div class="view-mode-buttons">
-      <button id="theaterBtn" onclick="toggleTheaterMode()">Theater Mode</button>
-      <button id="focusBtn" onclick="setFocusMode(true)">Focus Mode</button>
-      <button id="fullscreenBtn" onclick="toggleNativeFullscreen()">Fullscreen</button>
+      <button type="button" id="copyResumeBtn" onclick="copyResumeLink()" disabled title="Copy bookmark link for current video and timestamp">Copy Link</button>
+      <button type="button" id="theaterBtn" onclick="toggleTheaterMode()">Theater Mode</button>
+      <button type="button" onclick="setFocusMode(true)">Focus Mode</button>
+      <button type="button" id="fullscreenBtn" onclick="toggleNativeFullscreen()">Fullscreen</button>
     </div>
   </div>
 
@@ -523,15 +865,21 @@
   <section class="playlist-panel" id="playlistPanel">
     <div class="playlist-controls">
       <div class="playlist-nav-group">
-        <button id="prevPlaylistBtn" onclick="stepPlaylist(-1)" disabled>◀ Prev</button>
+        <button type="button" id="prevPlaylistBtn" onclick="stepPlaylist(-1)" disabled>◀ Prev</button>
         <span class="playlist-label">Video #</span>
         <input type="number" id="playlistIndexInput" class="jump-input" min="1" value="1" inputmode="numeric" />
-        <button class="primary" onclick="jumpToPlaylistIndex()">Go</button>
-        <button id="nextPlaylistBtn" onclick="stepPlaylist(1)" disabled>Next ▶</button>
+        <button type="button" class="primary" onclick="jumpToPlaylistIndex()">Go</button>
+        <button type="button" id="nextPlaylistBtn" onclick="stepPlaylist(1)" disabled>Next ▶</button>
       </div>
-      <span class="playlist-total-hint" id="playlistTotalHint">Total videos: —</span>
+      <div class="playlist-meta-group">
+        <span class="playlist-total-hint" id="playlistTotalHint">Total videos: —</span>
+        <button type="button" id="togglePlaylistTrayBtn" onclick="togglePlaylistTray()" disabled>Show Videos</button>
+      </div>
     </div>
+    <div class="playlist-tray" id="playlistTray" hidden></div>
   </section>
+
+  <footer class="privacy-footer">100% Client-Side · No Cookies · No Device Storage · No Tracking</footer>
 
   <!-- Official YouTube IFrame Player API -->
   <script src="https://www.youtube.com/iframe_api"></script>
@@ -550,11 +898,15 @@
     const currentVideoTitle = document.getElementById('currentVideoTitle');
     const focusTitleText = document.getElementById('focusTitleText');
     const playlistTotalHint = document.getElementById('playlistTotalHint');
+    const togglePlaylistTrayBtn = document.getElementById('togglePlaylistTrayBtn');
+    const playlistTray = document.getElementById('playlistTray');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyResumeBtn = document.getElementById('copyResumeBtn');
     const theaterBtn = document.getElementById('theaterBtn');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
 
     /* ------------------------------------------------------------------
-       State
+       State (In-Memory Only — Zero Device Storage)
     ------------------------------------------------------------------ */
     let ytPlayer = null;
     let isApiReady = false;
@@ -570,6 +922,11 @@
     let lastAppliedUrlParams = {};
     let pendingUrlParamsAfterPop = null;
     let currentStatusKind = 'none';
+    let currentSingleVideoId = null;
+    let isPlaylistTrayOpen = false;
+    let renderedPlaylistKey = '';
+    let activePlaylistVideos = [];
+    const sessionVideoMeta = new Map();
 
     const isHttpOrigin = /^https?:$/.test(window.location.protocol);
 
@@ -657,19 +1014,19 @@
           },
           onAutoplayBlocked: () => {
             clearTimeout(autoplayCheckTimer);
-            showStatus('Browser ne autoplay block kiya — video par tap/click karke Play dabayein.', true, 'autoplay');
+            showStatus('Autoplay was blocked by your browser — tap or click the video to play.', true, 'autoplay');
           },
           onError: (event) => {
             clearTimeout(autoplayCheckTimer);
             const messages = {
-              2: 'Link / video ID galat hai ya playlist load nahi ho payi.',
-              5: 'HTML5 player error — page refresh karein.',
-              100: 'Video nahi mila (deleted ya private ho sakta hai).',
-              101: 'Video owner ne embed karna allow nahi kiya.',
-              150: 'Video owner ne embed karna allow nahi kiya.',
-              153: 'Error 153: Embed referrer blocked — page ko http:// ya https:// server se kholein (file:// se nahi) aur ad-blocker check karein.'
+              2: 'Invalid video link or ID, or the playlist could not be loaded.',
+              5: 'HTML5 player error — please refresh the page.',
+              100: 'Video not found (it may be private or deleted).',
+              101: 'Embedding has been disabled by the video owner.',
+              150: 'Embedding has been disabled by the video owner.',
+              153: 'Error 153: Embed referrer blocked — open this page over http:// or https:// (not file://) and check ad blockers.'
             };
-            showStatus(messages[event.data] || 'Yeh video embed ke liye restricted hai ya link invalid hai.');
+            showStatus(messages[event.data] || 'This video cannot be embedded or the link is invalid.');
           }
         }
       });
@@ -678,25 +1035,197 @@
     /* ------------------------------------------------------------------
        Metadata & Playlist Sync
     ------------------------------------------------------------------ */
+    function formatDuration(totalSeconds) {
+      const sec = Math.floor(Number(totalSeconds) || 0);
+      if (sec <= 0) return '';
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      const pad = (n) => String(n).padStart(2, '0');
+      return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+    }
+
+    function updateCopyResumeButton() {
+      copyResumeBtn.disabled = !(activePlaylist.listId || currentSingleVideoId);
+    }
+
+    function updatePlaylistTrayButton() {
+      const count = activePlaylistVideos.length;
+      togglePlaylistTrayBtn.disabled = !activePlaylist.listId || count === 0;
+      togglePlaylistTrayBtn.classList.toggle('active-toggle', isPlaylistTrayOpen && count > 0);
+      if (count > 0) {
+        togglePlaylistTrayBtn.textContent = isPlaylistTrayOpen ? `Hide Videos (${count})` : `Show Videos (${count})`;
+      } else {
+        togglePlaylistTrayBtn.textContent = 'Show Videos';
+      }
+    }
+
+    function scrollActivePlaylistItemIntoView() {
+      if (!isPlaylistTrayOpen || playlistTray.hidden) return;
+      const activeCard = playlistTray.querySelector('.playlist-item.is-active');
+      if (!activeCard) return;
+      const targetTop = Math.max(0, activeCard.offsetTop - 12);
+      playlistTray.scrollTo({ top: targetTop, behavior: 'smooth' });
+    }
+
+    function renderPlaylistTray(plArray) {
+      const key = `${activePlaylist.listId}:${plArray.length}:${plArray[0] || ''}:${plArray[plArray.length - 1] || ''}`;
+      if (key === renderedPlaylistKey) {
+        syncPlaylistTrayCards();
+        return;
+      }
+
+      renderedPlaylistKey = key;
+      activePlaylistVideos = plArray.slice();
+      playlistTray.innerHTML = '';
+
+      const fragment = document.createDocumentFragment();
+      activePlaylistVideos.forEach((videoId, zeroIdx) => {
+        const oneBased = zeroIdx + 1;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'playlist-item';
+        card.dataset.index = String(oneBased);
+        card.dataset.videoId = videoId;
+        card.addEventListener('click', () => playPlaylistAt(oneBased));
+
+        const thumbWrap = document.createElement('div');
+        thumbWrap.className = 'playlist-thumb';
+
+        const img = document.createElement('img');
+        img.src = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`;
+        img.alt = `Video #${oneBased}`;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+
+        const numBadge = document.createElement('span');
+        numBadge.className = 'playlist-num-badge';
+        numBadge.textContent = `#${oneBased}`;
+
+        const durBadge = document.createElement('span');
+        durBadge.className = 'playlist-dur-badge';
+
+        thumbWrap.appendChild(img);
+        thumbWrap.appendChild(numBadge);
+        thumbWrap.appendChild(durBadge);
+
+        const meta = document.createElement('div');
+        meta.className = 'playlist-item-meta';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'playlist-item-title';
+        titleEl.textContent = `Video #${oneBased}`;
+
+        const stateEl = document.createElement('span');
+        stateEl.className = 'playlist-item-state';
+
+        meta.appendChild(titleEl);
+        meta.appendChild(stateEl);
+
+        card.appendChild(thumbWrap);
+        card.appendChild(meta);
+        fragment.appendChild(card);
+      });
+
+      playlistTray.appendChild(fragment);
+      updatePlaylistTrayButton();
+      syncPlaylistTrayCards(true);
+    }
+
+    function syncPlaylistTrayCards(shouldScroll = false) {
+      if (!activePlaylistVideos.length) return;
+      const cards = playlistTray.children;
+      for (let i = 0; i < cards.length; i++) {
+        const card = cards[i];
+        const cardIndex = i + 1;
+        const videoId = card.dataset.videoId;
+        const meta = sessionVideoMeta.get(videoId);
+        const isActive = cardIndex === activePlaylist.currentIndex;
+
+        card.classList.toggle('is-active', isActive);
+        card.setAttribute('aria-current', isActive ? 'true' : 'false');
+
+        const titleEl = card.querySelector('.playlist-item-title');
+        if (titleEl) {
+          const label = meta && meta.title ? meta.title : `Video #${cardIndex}`;
+          if (titleEl.textContent !== label) {
+            titleEl.textContent = label;
+            card.title = label;
+          }
+        }
+
+        const durEl = card.querySelector('.playlist-dur-badge');
+        if (durEl) {
+          const durText = meta && meta.duration ? meta.duration : '';
+          durEl.textContent = durText;
+          durEl.classList.toggle('has-duration', Boolean(durText));
+        }
+
+        const stateEl = card.querySelector('.playlist-item-state');
+        if (stateEl) {
+          stateEl.textContent = isActive ? 'Playing' : (meta && meta.visited ? '✓' : '');
+        }
+      }
+
+      if (shouldScroll) {
+        scrollActivePlaylistItemIntoView();
+      }
+    }
+
+    function togglePlaylistTray() {
+      if (!activePlaylistVideos.length) return;
+      isPlaylistTrayOpen = !isPlaylistTrayOpen;
+      playlistTray.hidden = !isPlaylistTrayOpen;
+      updatePlaylistTrayButton();
+      if (isPlaylistTrayOpen) {
+        syncPlaylistTrayCards(true);
+      }
+    }
+
+    function resetPlaylistTray() {
+      isPlaylistTrayOpen = false;
+      renderedPlaylistKey = '';
+      activePlaylistVideos = [];
+      sessionVideoMeta.clear();
+      playlistTray.innerHTML = '';
+      playlistTray.hidden = true;
+      updatePlaylistTrayButton();
+    }
+
     function updatePlaylistControlsUI() {
       const idx = activePlaylist.currentIndex;
       const total = activePlaylist.totalVideos;
       prevPlaylistBtn.disabled = !activePlaylist.listId || idx <= 1;
       nextPlaylistBtn.disabled = !activePlaylist.listId || (total > 0 && total < 200 && idx >= total);
+      updatePlaylistTrayButton();
+      updateCopyResumeButton();
     }
 
     function syncPlayerMetadata() {
       if (!ytPlayer) return false;
 
       const data = typeof ytPlayer.getVideoData === 'function' ? ytPlayer.getVideoData() : null;
+      const rawDuration = typeof ytPlayer.getDuration === 'function' ? ytPlayer.getDuration() : 0;
+      const formattedDuration = formatDuration(rawDuration);
+
       if (data && data.title) {
         currentVideoTitle.textContent = data.title;
         currentVideoTitle.title = data.title;
         focusTitleText.textContent = data.title;
       }
 
+      if (data && data.video_id) {
+        const prevMeta = sessionVideoMeta.get(data.video_id) || {};
+        sessionVideoMeta.set(data.video_id, {
+          title: data.title || prevMeta.title || '',
+          duration: formattedDuration || prevMeta.duration || '',
+          visited: true
+        });
+      }
+
       if (activePlaylist.listId) {
         let listReady = false;
+        let indexChanged = false;
         const plArray = typeof ytPlayer.getPlaylist === 'function' ? ytPlayer.getPlaylist() : null;
 
         if (Array.isArray(plArray) && plArray.length > 0) {
@@ -720,7 +1249,7 @@
             } else if (targetIdx === 0 && targetStart > 0 && typeof ytPlayer.seekTo === 'function') {
               try { ytPlayer.seekTo(targetStart, true); } catch { /* ignore */ }
             } else if (targetIdx === -1 && plArray.length >= 200) {
-              showStatus('Video 200 se aage hai — Video # box se seedha jump kar sakte hain.', true, 'note');
+              showStatus('This video is beyond item 200 — use the Video # box to jump directly to it.', true, 'note');
             }
           }
 
@@ -729,12 +1258,16 @@
             plArray.length >= 200
               ? `Loaded videos: ${plArray.length}+`
               : `Total videos in playlist: ${plArray.length}`;
+
+          renderPlaylistTray(plArray);
         }
 
         if (typeof ytPlayer.getPlaylistIndex === 'function') {
           const plIdx = ytPlayer.getPlaylistIndex();
           if (typeof plIdx === 'number' && plIdx >= 0) {
-            activePlaylist.currentIndex = plIdx + 1;
+            const nextIndex = plIdx + 1;
+            indexChanged = nextIndex !== activePlaylist.currentIndex;
+            activePlaylist.currentIndex = nextIndex;
             playlistIndexInput.value = activePlaylist.currentIndex;
 
             const totalText = activePlaylist.totalVideos > 0 ? activePlaylist.totalVideos : '?';
@@ -748,12 +1281,15 @@
           }
         }
 
+        syncPlaylistTrayCards(indexChanged);
         updatePlaylistControlsUI();
         return listReady;
       }
 
       if (data && data.video_id) {
+        currentSingleVideoId = data.video_id;
         videoCountBadge.textContent = 'Single Video';
+        updateCopyResumeButton();
       }
       return true;
     }
@@ -788,7 +1324,7 @@
         if (!PS || !ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
         const state = ytPlayer.getPlayerState();
         if (state === PS.UNSTARTED || state === PS.CUED) {
-          showStatus('Autoplay block ho gaya — video par tap/click karke Play dabayein.', true, 'autoplay');
+          showStatus('Autoplay was blocked — tap or click the video to start playback.', true, 'autoplay');
         }
       }, 3000);
     }
@@ -876,9 +1412,9 @@
         if (listId && isNonEmbeddableList(listId)) {
           if (videoId) {
             listId = null;
-            note = 'Mix / Personal playlist embed nahi ho sakti — sirf video play kiya ja raha hai.';
+            note = 'Mix and personal playlists cannot be embedded — playing the single video instead.';
           } else {
-            return { error: 'Mix / Watch Later / Liked playlists embed ke liye available nahi hoti.' };
+            return { error: 'Mix, Watch Later, and Liked playlists are not available for embedding.' };
           }
         }
 
@@ -910,12 +1446,19 @@
     /* ------------------------------------------------------------------
        Media Loading
     ------------------------------------------------------------------ */
+    function syncIdleStateUI() {
+      const hasMedia = document.body.classList.contains('has-media');
+      clearBtn.hidden = !hasMedia && !ytInput.value.trim();
+    }
+
     function loadMedia(parsed) {
+      document.body.classList.add('has-media');
+      syncIdleStateUI();
       showStatus(parsed.note || '', Boolean(parsed.note), parsed.note ? 'note' : 'none');
 
       if (!isApiReady) {
         pendingLoad = parsed;
-        if (!parsed.note) showStatus('Player load ho raha hai...', true, 'loading');
+        if (!parsed.note) showStatus('Loading player...', true, 'loading');
         return;
       }
 
@@ -925,7 +1468,7 @@
         doLoad(parsed);
       } else {
         pendingLoad = parsed;
-        if (!parsed.note) showStatus('Player load ho raha hai...', true, 'loading');
+        if (!parsed.note) showStatus('Loading player...', true, 'loading');
       }
     }
 
@@ -936,8 +1479,13 @@
       pendingTargetStartSeconds = 0;
 
       showStatus(parsed.note || '', Boolean(parsed.note), parsed.note ? 'note' : 'none');
+      document.body.classList.toggle('has-playlist', Boolean(parsed.listId));
 
       if (parsed.listId) {
+        if (activePlaylist.listId !== parsed.listId) {
+          resetPlaylistTray();
+        }
+        currentSingleVideoId = null;
         activePlaylist = {
           listId: parsed.listId,
           currentIndex: parsed.index || 1,
@@ -969,6 +1517,8 @@
         updateURLParams({ list: parsed.listId, index: activePlaylist.currentIndex });
         startPlaylistPolling();
       } else {
+        resetPlaylistTray();
+        currentSingleVideoId = parsed.videoId;
         activePlaylist = { listId: null, currentIndex: 1, totalVideos: 0 };
         playlistPanel.style.display = 'none';
         videoCountBadge.textContent = 'Single Video';
@@ -1005,6 +1555,7 @@
       activePlaylist.currentIndex = safeIndex;
       playlistIndexInput.value = safeIndex;
       updatePlaylistControlsUI();
+      syncPlaylistTrayCards(true);
 
       const loadedList = typeof ytPlayer.getPlaylist === 'function' ? ytPlayer.getPlaylist() : null;
       if (typeof ytPlayer.playVideoAt === 'function' && Array.isArray(loadedList) && safeIndex <= loadedList.length) {
@@ -1036,7 +1587,7 @@
     function handlePlay() {
       const parsed = parseYouTubeURL(ytInput.value);
       if (!parsed) {
-        showStatus('Valid YouTube video ya playlist link paste karein.');
+        showStatus('Please paste a valid YouTube video or playlist link.');
         return;
       }
       if (parsed.error) {
@@ -1053,17 +1604,18 @@
         }
         const text = await navigator.clipboard.readText();
         if (!text || !text.trim()) {
-          showStatus('Clipboard khali hai.', true);
+          showStatus('Clipboard is empty.', true);
           return;
         }
         ytInput.value = text.trim();
+        syncIdleStateUI();
         handlePlay();
       } catch (err) {
         const denied = err && err.name === 'NotAllowedError';
         showStatus(
           denied
-            ? 'Clipboard permission denied — box mein Ctrl+V (ya Paste) karein, auto-play ho jayega.'
-            : 'Auto-paste is browser/origin par available nahi — box mein Ctrl+V (ya Paste) karein.',
+            ? 'Clipboard permission denied — paste directly into the box to auto-play.'
+            : 'Auto-paste is unavailable here — paste directly into the box to auto-play.',
           true
         );
         ytInput.focus();
@@ -1076,11 +1628,92 @@
       if (pastedText && pastedText.trim()) {
         e.preventDefault();
         ytInput.value = pastedText.trim();
+        syncIdleStateUI();
         handlePlay();
       }
     });
 
-    function clearPlayer() {
+    ytInput.addEventListener('input', () => {
+      if (!ytInput.value.trim()) {
+        if (document.body.classList.contains('has-media')) {
+          clearPlayer({ keepFocus: true });
+        } else {
+          showStatus('');
+          syncIdleStateUI();
+        }
+        return;
+      }
+      syncIdleStateUI();
+    });
+
+    async function copyResumeLink() {
+      if (!activePlaylist.listId && !currentSingleVideoId) return;
+
+      const currentSec =
+        ytPlayer && typeof ytPlayer.getCurrentTime === 'function'
+          ? Math.floor(ytPlayer.getCurrentTime() || 0)
+          : 0;
+
+      const params = {};
+      if (activePlaylist.listId) {
+        params.list = activePlaylist.listId;
+        params.index = activePlaylist.currentIndex;
+      } else if (currentSingleVideoId) {
+        params.v = currentSingleVideoId;
+      }
+      if (currentSec > 0) {
+        params.t = currentSec;
+      }
+
+      let shareUrl = '';
+      try {
+        const urlObj = new URL(window.location.href);
+        urlObj.search = '';
+        urlObj.hash = '';
+        Object.entries(params).forEach(([key, val]) => {
+          urlObj.searchParams.set(key, String(val));
+        });
+        shareUrl = urlObj.toString();
+      } catch {
+        showStatus('Could not generate a resume link.', false);
+        return;
+      }
+
+      const timeLabel = formatDuration(currentSec);
+      const successMsg = timeLabel
+        ? `Resume link copied (${timeLabel}) — ready to bookmark.`
+        : 'Resume link copied — ready to bookmark.';
+
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(shareUrl);
+          showStatus(successMsg, true, 'note');
+          return;
+        }
+        throw new Error('clipboard-unavailable');
+      } catch {
+        try {
+          const tempInput = document.createElement('textarea');
+          tempInput.value = shareUrl;
+          tempInput.setAttribute('readonly', '');
+          tempInput.style.position = 'fixed';
+          tempInput.style.opacity = '0';
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          const copied = document.execCommand('copy');
+          document.body.removeChild(tempInput);
+          if (copied) {
+            showStatus(successMsg, true, 'note');
+            return;
+          }
+        } catch { /* ignore */ }
+
+        updateURLParams(params);
+        showStatus('Address bar updated — copy or bookmark the link from your browser.', true, 'note');
+      }
+    }
+
+    function clearPlayer(options = {}) {
       ytInput.value = '';
       showStatus('');
       stopPlaylistPolling();
@@ -1089,11 +1722,20 @@
       pendingTargetVideoId = null;
       pendingTargetStartSeconds = 0;
       lastSyncedUrlKey = '';
+      currentSingleVideoId = null;
 
       const wasInFocus = document.body.classList.contains('focus-mode');
       if (wasInFocus) {
         setFocusMode(false, {});
       }
+
+      if (document.body.classList.contains('theater-mode')) {
+        document.body.classList.remove('theater-mode');
+        theaterBtn.classList.remove('active-toggle');
+        theaterBtn.textContent = 'Theater Mode';
+      }
+
+      document.body.classList.remove('has-media', 'has-playlist');
 
       try {
         if (ytPlayer && typeof ytPlayer.destroy === 'function') {
@@ -1105,19 +1747,24 @@
       isPlayerReady = false;
       ensurePlayerMount();
 
+      resetPlaylistTray();
       activePlaylist = { listId: null, currentIndex: 1, totalVideos: 0 };
       playlistPanel.style.display = 'none';
       playlistIndexInput.value = 1;
       playlistTotalHint.textContent = 'Total videos: —';
       videoCountBadge.textContent = 'Ready';
-      currentVideoTitle.textContent = 'Koi bhi video ya playlist link paste karein';
+      currentVideoTitle.textContent = 'Paste any YouTube video or playlist link to start';
       currentVideoTitle.removeAttribute('title');
       focusTitleText.textContent = 'Focus Mode';
       updatePlaylistControlsUI();
+      syncIdleStateUI();
       if (!wasInFocus) {
         updateURLParams({});
       } else {
         lastAppliedUrlParams = {};
+      }
+      if (options.keepFocus) {
+        ytInput.focus();
       }
     }
 
@@ -1185,6 +1832,13 @@
       }
     });
 
+    const supportsNativeFullscreen = Boolean(
+      playerWrapper.requestFullscreen || playerWrapper.webkitRequestFullscreen
+    );
+    if (!supportsNativeFullscreen) {
+      fullscreenBtn.hidden = true;
+    }
+
     async function toggleNativeFullscreen() {
       const fsElement = document.fullscreenElement || document.webkitFullscreenElement;
       if (fsElement) {
@@ -1201,10 +1855,10 @@
         } else if (playerWrapper.webkitRequestFullscreen) {
           playerWrapper.webkitRequestFullscreen();
         } else {
-          showStatus('Is browser mein video ke andar wala Fullscreen icon use karein.', true);
+          showStatus('Use the fullscreen icon inside the video player in this browser.', true);
         }
       } catch {
-        showStatus('Fullscreen start nahi ho paya — video player ke andar wala Fullscreen icon tap karein.', true);
+        showStatus('Could not enter fullscreen — tap the fullscreen icon inside the video player.', true);
       }
     }
 
@@ -1242,7 +1896,7 @@
     ------------------------------------------------------------------ */
     function initFromURL() {
       if (!isHttpOrigin) {
-        showStatus('Tip: file:// se YouTube Error 153 aa sakta hai — isse local server (http://localhost) ya HTTPS par kholein.', true);
+        showStatus('Tip: Opening via file:// may cause YouTube Error 153 — open over http:// or https:// instead.', true);
       }
 
       const params = new URLSearchParams(window.location.search);
@@ -1279,7 +1933,7 @@
 
     apiTimeout = setTimeout(() => {
       if (!isApiReady) {
-        showStatus('YouTube player load nahi hua. Internet / ad-blocker check karein, aur page ko http:// ya https:// se kholein.', true);
+        showStatus('YouTube player failed to load. Check your internet connection or ad blocker, and open over http:// or https://.', true);
       }
     }, 8000);
   </script>

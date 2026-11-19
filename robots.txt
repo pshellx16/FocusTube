@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pshellx16.github.io/FocusTube/sitemap.xml

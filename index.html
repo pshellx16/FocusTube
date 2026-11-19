@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="color-scheme" content="dark" />
+  <title>FocusTube — Distraction-Free Player</title>
+  <meta name="description" content="Distraction-free YouTube video and playlist player for students and developers." />
+  <meta property="og:title" content="FocusTube — Distraction-Free Player" />
+  <meta property="og:description" content="Distraction-free YouTube video and playlist player for students and developers." />
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface-hover: #262626;
+      --border: #2e2e2e;
+      --text: #f1f1f1;
+      --muted: #9aa0a6;
+      --accent: #e62117;
+      --accent-hover: #c51910;
+
+      --content-max: 1200px;
+      --content-max-wide: 1500px;
+      --player-radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
+
+    header,
+    .controls-bar,
+    .status-msg,
+    .player-wrapper,
+    .below-player-bar,
+    .playlist-panel {
+      width: 100%;
+      max-width: var(--content-max);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      white-space: nowrap;
+    }
+
+    h1 span {
+      color: var(--accent);
+    }
+
+    .controls-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    /* >= 16px prevents iOS Safari auto-zoom on input focus */
+    input[type="text"],
+    input[type="number"] {
+      padding: 10px 14px;
+      font-size: 16px;
+      font-family: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      min-width: 0;
+    }
+
+    input:focus {
+      border-color: #666;
+    }
+
+    button {
+      padding: 9px 14px;
+      font-size: 13.5px;
+      font-weight: 500;
+      font-family: inherit;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      white-space: nowrap;
+      touch-action: manipulation;
+      transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--surface-hover);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    button.active-toggle {
+      background: #2c2c2c;
+      border-color: #666;
+      color: #fff;
+    }
+
+    .status-msg {
+      font-size: 13px;
+      color: #ff8a80;
+      margin-bottom: 8px;
+      min-height: 18px;
+    }
+
+    .status-msg.info {
+      color: #8ab4f8;
+    }
+
+    /* Player Container (min 200x200 enforced for YouTube policy compliance) */
+    .player-wrapper {
+      aspect-ratio: 16 / 9;
+      min-width: 200px;
+      min-height: 200px;
+      background: #000;
+      border-radius: var(--player-radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      transition: max-width 0.2s ease;
+    }
+
+    .player-wrapper:fullscreen,
+    .player-wrapper:-webkit-full-screen {
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      border: none;
+      border-radius: 0;
+    }
+
+    #ytPlayerMount,
+    .player-wrapper iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* Info + Mode buttons directly below player */
+    .below-player-bar {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: max-width 0.2s ease;
+    }
+
+    .now-playing-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1 1 240px;
+    }
+
+    .count-badge {
+      background: #2a2a2a;
+      border: 1px solid #3d3d3d;
+      color: #fff;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 5px;
+      flex-shrink: 0;
+    }
+
+    .video-title-text {
+      font-size: 13.5px;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .view-mode-buttons {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    /* Playlist Navigator Panel */
+    .playlist-panel {
+      margin-top: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: none;
+      transition: max-width 0.2s ease;
+    }
+
+    .playlist-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .playlist-nav-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .playlist-label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .jump-input {
+      width: 84px;
+      padding: 8px 10px !important;
+      font-size: 16px !important;
+      text-align: center;
+    }
+
+    .playlist-total-hint {
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    /* ---------------- FOCUS MODE (Policy-safe: non-overlapping top bar) ---------------- */
+    .focus-top-bar {
+      display: none;
+      width: 100%;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: calc(6px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 6px calc(12px + env(safe-area-inset-left));
+      background: #0a0a0a;
+      border-bottom: 1px solid #222;
+    }
+
+    .focus-title-text {
+      font-size: 13px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .exit-focus-btn {
+      padding: 6px 12px;
+      font-size: 12.5px;
+      background: #1d1d1d;
+      border-color: #444;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .exit-focus-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    body.focus-mode {
+      padding: 0;
+      padding-bottom: env(safe-area-inset-bottom);
+      background: #000;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    body.focus-mode .focus-top-bar {
+      display: flex;
+    }
+
+    body.focus-mode header,
+    body.focus-mode .controls-bar,
+    body.focus-mode .status-msg,
+    body.focus-mode .below-player-bar,
+    body.focus-mode .playlist-panel {
+      display: none !important;
+    }
+
+    body.focus-mode .player-wrapper {
+      flex: 1 1 0%;
+      width: 100%;
+      max-width: none;
+      min-height: 200px;
+      aspect-ratio: auto;
+      border: none;
+      border-radius: 0;
+    }
+
+    /* ---------------- THEATER MODE (Desktop / Wide Screens Only) ---------------- */
+    @media (max-width: 899px) {
+      #theaterBtn {
+        display: none;
+      }
+    }
+
+    @media (min-width: 900px) {
+      body.theater-mode .player-wrapper {
+        flex: 1 1 0%;
+        max-width: var(--content-max-wide);
+        min-height: 270px;
+        aspect-ratio: auto;
+        height: auto;
+      }
+
+      body.theater-mode header,
+      body.theater-mode .controls-bar,
+      body.theater-mode .status-msg,
+      body.theater-mode .below-player-bar,
+      body.theater-mode .playlist-panel {
+        max-width: var(--content-max-wide);
+      }
+    }
+
+    /* ---------------- MOBILE (Phones) ---------------- */
+    @media (max-width: 640px) {
+      body {
+        padding: 12px 10px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      }
+
+      header {
+        margin-bottom: 10px;
+      }
+
+      .controls-bar {
+        flex-wrap: wrap;
+      }
+
+      .controls-bar input[type="text"] {
+        width: 100%;
+        flex: none;
+      }
+
+      .controls-bar button {
+        flex: 1;
+        padding: 11px 8px;
+        font-size: 14px;
+      }
+
+      .below-player-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .now-playing-info {
+        flex: none;
+        width: 100%;
+      }
+
+      .view-mode-buttons {
+        justify-content: stretch;
+      }
+
+      .view-mode-buttons button {
+        flex: 1;
+      }
+
+      .playlist-nav-group {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .player-wrapper {
+        border-radius: 6px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .playlist-label {
+        display: none;
+      }
+
+      .jump-input {
+        width: 68px;
+      }
+
+      .playlist-total-hint {
+        font-size: 12px;
+      }
+    }
+
+    @media (min-width: 1400px) {
+      body {
+        padding: 28px 24px;
+        padding-bottom: calc(28px + env(safe-area-inset-bottom));
+      }
+
+      h1 {
+        font-size: 1.4rem;
+      }
+    }
+
+    /* Short landscape viewports (rotated phone): keeps player >= 200px tall */
+    @media (max-height: 520px) and (orientation: landscape) {
+      body:not(.focus-mode) {
+        padding: 8px 14px;
+      }
+
+      body:not(.focus-mode) header {
+        margin-bottom: 8px;
+      }
+
+      body:not(.focus-mode) .controls-bar {
+        margin-bottom: 6px;
+      }
+
+      body:not(.focus-mode) .player-wrapper {
+        width: min(100%, max(356px, calc((100dvh - 125px) * 16 / 9)));
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Non-overlapping Focus Mode Top Bar -->
+  <div class="focus-top-bar" id="focusTopBar">
+    <span class="focus-title-text" id="focusTitleText">Focus Mode</span>
+    <button class="exit-focus-btn" onclick="setFocusMode(false)">✕ Exit Focus</button>
+  </div>
+
+  <header>
+    <h1>Focus<span>Tube</span></h1>
+    <button onclick="clearPlayer()" title="Reset player">Clear</button>
+  </header>
+
+  <div class="controls-bar">
+    <input
+      type="text"
+      id="ytInput"
+      placeholder="YouTube video / playlist link paste karein (auto-play)"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      inputmode="url"
+      enterkeyhint="go"
+    />
+    <button class="primary" onclick="handlePlay()">Play</button>
+    <button onclick="pasteAndPlay()">Paste &amp; Play</button>
+  </div>
+
+  <div class="status-msg" id="statusMsg" role="status" aria-live="polite"></div>
+
+  <!-- Video Player -->
+  <div class="player-wrapper" id="playerWrapper">
+    <div id="ytPlayerMount"></div>
+  </div>
+
+  <!-- Info + Mode Buttons -->
+  <div class="below-player-bar" id="belowPlayerBar">
+    <div class="now-playing-info">
+      <span class="count-badge" id="videoCountBadge">Ready</span>
+      <span class="video-title-text" id="currentVideoTitle">Koi bhi video ya playlist link paste karein</span>
+    </div>
+    <div class="view-mode-buttons">
+      <button id="theaterBtn" onclick="toggleTheaterMode()">Theater Mode</button>
+      <button id="focusBtn" onclick="setFocusMode(true)">Focus Mode</button>
+      <button id="fullscreenBtn" onclick="toggleNativeFullscreen()">Fullscreen</button>
+    </div>
+  </div>
+
+  <!-- Playlist Navigator -->
+  <section class="playlist-panel" id="playlistPanel">
+    <div class="playlist-controls">
+      <div class="playlist-nav-group">
+        <button id="prevPlaylistBtn" onclick="stepPlaylist(-1)" disabled>◀ Prev</button>
+        <span class="playlist-label">Video #</span>
+        <input type="number" id="playlistIndexInput" class="jump-input" min="1" value="1" inputmode="numeric" />
+        <button class="primary" onclick="jumpToPlaylistIndex()">Go</button>
+        <button id="nextPlaylistBtn" onclick="stepPlaylist(1)" disabled>Next ▶</button>
+      </div>
+      <span class="playlist-total-hint" id="playlistTotalHint">Total videos: —</span>
+    </div>
+  </section>
+
+  <!-- Official YouTube IFrame Player API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    /* ------------------------------------------------------------------
+       DOM references
+    ------------------------------------------------------------------ */
+    const ytInput = document.getElementById('ytInput');
+    const statusMsg = document.getElementById('statusMsg');
+    const playerWrapper = document.getElementById('playerWrapper');
+    const playlistPanel = document.getElementById('playlistPanel');
+    const playlistIndexInput = document.getElementById('playlistIndexInput');
+    const prevPlaylistBtn = document.getElementById('prevPlaylistBtn');
+    const nextPlaylistBtn = document.getElementById('nextPlaylistBtn');
+    const videoCountBadge = document.getElementById('videoCountBadge');
+    const currentVideoTitle = document.getElementById('currentVideoTitle');
+    const focusTitleText = document.getElementById('focusTitleText');
+    const playlistTotalHint = document.getElementById('playlistTotalHint');
+    const theaterBtn = document.getElementById('theaterBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    /* ------------------------------------------------------------------
+       State
+    ------------------------------------------------------------------ */
+    let ytPlayer = null;
+    let isApiReady = false;
+    let isPlayerReady = false;
+    let pendingLoad = null;
+    let pendingTargetVideoId = null;
+    let pendingTargetStartSeconds = 0;
+    let playlistPollTimer = null;
+    let autoplayCheckTimer = null;
+    let apiTimeout = null;
+    let lastSyncedUrlKey = '';
+    let hasFocusHistoryEntry = false;
+    let lastAppliedUrlParams = {};
+    let pendingUrlParamsAfterPop = null;
+    let currentStatusKind = 'none';
+
+    const isHttpOrigin = /^https?:$/.test(window.location.protocol);
+
+    let activePlaylist = {
+      listId: null,
+      currentIndex: 1,
+      totalVideos: 0
+    };
+
+    function showStatus(msg, isInfo = false, kind = '') {
+      statusMsg.textContent = msg || '';
+      statusMsg.classList.toggle('info', isInfo);
+      currentStatusKind = msg ? (kind || (isInfo ? 'info' : 'error')) : 'none';
+    }
+
+    /* ------------------------------------------------------------------
+       YouTube IFrame API bootstrap
+    ------------------------------------------------------------------ */
+    function onYouTubeIframeAPIReady() {
+      if (isApiReady) return;
+      isApiReady = true;
+      clearTimeout(apiTimeout);
+      if (pendingLoad) ensurePlayer();
+    }
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+    function ensurePlayerMount() {
+      if (!document.getElementById('ytPlayerMount')) {
+        const mount = document.createElement('div');
+        mount.id = 'ytPlayerMount';
+        playerWrapper.innerHTML = '';
+        playerWrapper.appendChild(mount);
+      }
+    }
+
+    function ensurePlayer() {
+      if (ytPlayer) return;
+      ensurePlayerMount();
+
+      const playerVars = {
+        autoplay: 1,
+        rel: 0,
+        playsinline: 1,
+        fs: 1
+      };
+
+      if (isHttpOrigin && window.location.origin) {
+        playerVars.origin = window.location.origin;
+      }
+
+      ytPlayer = new YT.Player('ytPlayerMount', {
+        host: 'https://www.youtube.com',
+        playerVars,
+        events: {
+          onReady: () => {
+            isPlayerReady = true;
+            try {
+              const iframe = typeof ytPlayer.getIframe === 'function' ? ytPlayer.getIframe() : null;
+              if (iframe) iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+            } catch { /* ignore */ }
+
+            const toLoad = pendingLoad;
+            pendingLoad = null;
+            if (toLoad) doLoad(toLoad);
+          },
+          onStateChange: (event) => {
+            const PS = window.YT && window.YT.PlayerState;
+            if (!PS) return;
+
+            if (event.data === PS.PLAYING || event.data === PS.BUFFERING) {
+              clearTimeout(autoplayCheckTimer);
+            }
+
+            if (event.data === PS.PLAYING && (currentStatusKind === 'autoplay' || currentStatusKind === 'loading')) {
+              showStatus('');
+            }
+
+            if (
+              event.data === PS.PLAYING ||
+              event.data === PS.BUFFERING ||
+              event.data === PS.CUED
+            ) {
+              syncPlayerMetadata();
+            }
+          },
+          onAutoplayBlocked: () => {
+            clearTimeout(autoplayCheckTimer);
+            showStatus('Browser ne autoplay block kiya — video par tap/click karke Play dabayein.', true, 'autoplay');
+          },
+          onError: (event) => {
+            clearTimeout(autoplayCheckTimer);
+            const messages = {
+              2: 'Link / video ID galat hai ya playlist load nahi ho payi.',
+              5: 'HTML5 player error — page refresh karein.',
+              100: 'Video nahi mila (deleted ya private ho sakta hai).',
+              101: 'Video owner ne embed karna allow nahi kiya.',
+              150: 'Video owner ne embed karna allow nahi kiya.',
+              153: 'Error 153: Embed referrer blocked — page ko http:// ya https:// server se kholein (file:// se nahi) aur ad-blocker check karein.'
+            };
+            showStatus(messages[event.data] || 'Yeh video embed ke liye restricted hai ya link invalid hai.');
+          }
+        }
+      });
+    }
+
+    /* ------------------------------------------------------------------
+       Metadata & Playlist Sync
+    ------------------------------------------------------------------ */
+    function updatePlaylistControlsUI() {
+      const idx = activePlaylist.currentIndex;
+      const total = activePlaylist.totalVideos;
+      prevPlaylistBtn.disabled = !activePlaylist.listId || idx <= 1;
+      nextPlaylistBtn.disabled = !activePlaylist.listId || (total > 0 && total < 200 && idx >= total);
+    }
+
+    function syncPlayerMetadata() {
+      if (!ytPlayer) return false;
+
+      const data = typeof ytPlayer.getVideoData === 'function' ? ytPlayer.getVideoData() : null;
+      if (data && data.title) {
+        currentVideoTitle.textContent = data.title;
+        currentVideoTitle.title = data.title;
+        focusTitleText.textContent = data.title;
+      }
+
+      if (activePlaylist.listId) {
+        let listReady = false;
+        const plArray = typeof ytPlayer.getPlaylist === 'function' ? ytPlayer.getPlaylist() : null;
+
+        if (Array.isArray(plArray) && plArray.length > 0) {
+          listReady = true;
+
+          // If user pasted ?v=VIDEO_ID&list=PLAYLIST_ID without &index=, jump once to that video
+          if (pendingTargetVideoId) {
+            const targetIdx = plArray.indexOf(pendingTargetVideoId);
+            const targetStart = pendingTargetStartSeconds;
+            pendingTargetVideoId = null;
+            pendingTargetStartSeconds = 0;
+
+            if (targetIdx > 0 && typeof ytPlayer.playVideoAt === 'function') {
+              ytPlayer.playVideoAt(targetIdx);
+              if (targetStart > 0 && typeof ytPlayer.seekTo === 'function') {
+                setTimeout(() => {
+                  try { ytPlayer.seekTo(targetStart, true); } catch { /* ignore */ }
+                }, 400);
+              }
+              return true;
+            } else if (targetIdx === 0 && targetStart > 0 && typeof ytPlayer.seekTo === 'function') {
+              try { ytPlayer.seekTo(targetStart, true); } catch { /* ignore */ }
+            } else if (targetIdx === -1 && plArray.length >= 200) {
+              showStatus('Video 200 se aage hai — Video # box se seedha jump kar sakte hain.', true, 'note');
+            }
+          }
+
+          activePlaylist.totalVideos = plArray.length;
+          playlistTotalHint.textContent =
+            plArray.length >= 200
+              ? `Loaded videos: ${plArray.length}+`
+              : `Total videos in playlist: ${plArray.length}`;
+        }
+
+        if (typeof ytPlayer.getPlaylistIndex === 'function') {
+          const plIdx = ytPlayer.getPlaylistIndex();
+          if (typeof plIdx === 'number' && plIdx >= 0) {
+            activePlaylist.currentIndex = plIdx + 1;
+            playlistIndexInput.value = activePlaylist.currentIndex;
+
+            const totalText = activePlaylist.totalVideos > 0 ? activePlaylist.totalVideos : '?';
+            videoCountBadge.textContent = `Video ${activePlaylist.currentIndex} / ${totalText}`;
+
+            const syncKey = `${activePlaylist.listId}:${activePlaylist.currentIndex}`;
+            if (syncKey !== lastSyncedUrlKey) {
+              lastSyncedUrlKey = syncKey;
+              updateURLParams({ list: activePlaylist.listId, index: activePlaylist.currentIndex });
+            }
+          }
+        }
+
+        updatePlaylistControlsUI();
+        return listReady;
+      }
+
+      if (data && data.video_id) {
+        videoCountBadge.textContent = 'Single Video';
+      }
+      return true;
+    }
+
+    function startPlaylistPolling() {
+      stopPlaylistPolling();
+      let tries = 0;
+      playlistPollTimer = setInterval(() => {
+        tries++;
+        if (!ytPlayer || !activePlaylist.listId) {
+          stopPlaylistPolling();
+          return;
+        }
+        const gotList = syncPlayerMetadata();
+        if (gotList || tries >= 25) {
+          stopPlaylistPolling();
+        }
+      }, 400);
+    }
+
+    function stopPlaylistPolling() {
+      if (playlistPollTimer) {
+        clearInterval(playlistPollTimer);
+        playlistPollTimer = null;
+      }
+    }
+
+    function scheduleAutoplayCheck() {
+      clearTimeout(autoplayCheckTimer);
+      autoplayCheckTimer = setTimeout(() => {
+        const PS = window.YT && window.YT.PlayerState;
+        if (!PS || !ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
+        const state = ytPlayer.getPlayerState();
+        if (state === PS.UNSTARTED || state === PS.CUED) {
+          showStatus('Autoplay block ho gaya — video par tap/click karke Play dabayein.', true, 'autoplay');
+        }
+      }, 3000);
+    }
+
+    /* ------------------------------------------------------------------
+       URL & Timestamp Parsing
+    ------------------------------------------------------------------ */
+    function parseTimestamp(raw) {
+      if (!raw) return 0;
+      const val = String(raw).trim().toLowerCase();
+      if (/^\d+$/.test(val)) return parseInt(val, 10);
+
+      const match = val.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+      if (!match) return 0;
+      const h = parseInt(match[1] || '0', 10);
+      const m = parseInt(match[2] || '0', 10);
+      const s = parseInt(match[3] || '0', 10);
+      return h * 3600 + m * 60 + s;
+    }
+
+    function isNonEmbeddableList(listId) {
+      return /^(RD|WL|LL|LM)/i.test(listId);
+    }
+
+    function parseYouTubeURL(rawUrl) {
+      let input = String(rawUrl || '').trim();
+      if (!input) return null;
+
+      if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
+        return { videoId: input, listId: null, index: 1, hasExplicitIndex: false, startSeconds: 0, note: '' };
+      }
+
+      if (/^(PL|UU|OLAK5uy_)[a-zA-Z0-9_-]{10,}$/.test(input)) {
+        return { videoId: null, listId: input, index: 1, hasExplicitIndex: false, startSeconds: 0, note: '' };
+      }
+
+      // Extract URL if user pasted shared text containing a YouTube link (e.g. WhatsApp/YouTube share)
+      const embeddedUrlMatch = input.match(/https?:\/\/[^\s<>"{}|\\^`[\]]+/i);
+      if (embeddedUrlMatch) {
+        input = embeddedUrlMatch[0];
+      } else if (!/^https?:\/\//i.test(input)) {
+        input = 'https://' + input;
+      }
+
+      try {
+        const urlObj = new URL(input);
+        const host = urlObj.hostname.replace(/^www\./, '').toLowerCase();
+        const isYouTube =
+          host === 'youtube.com' || host.endsWith('.youtube.com') ||
+          host === 'youtube-nocookie.com' || host.endsWith('.youtube-nocookie.com');
+
+        if (host !== 'youtu.be' && !isYouTube) return null;
+
+        let videoId = null;
+        let listId = urlObj.searchParams.get('list');
+        const rawIndexParam = urlObj.searchParams.get('index');
+        const parsedIndex = parseInt(rawIndexParam, 10);
+        const hasExplicitIndex = !isNaN(parsedIndex) && parsedIndex >= 1;
+        const index = hasExplicitIndex ? parsedIndex : 1;
+
+        const rawTime =
+          urlObj.searchParams.get('t') ||
+          urlObj.searchParams.get('start') ||
+          (urlObj.hash ? urlObj.hash.replace(/^#t=/i, '') : '');
+        const startSeconds = parseTimestamp(rawTime);
+
+        if (host === 'youtu.be') {
+          videoId = urlObj.pathname.slice(1).split('/')[0];
+        } else if (urlObj.pathname === '/watch' || urlObj.pathname === '/watch/') {
+          videoId = urlObj.searchParams.get('v');
+        } else if (
+          urlObj.pathname.startsWith('/embed/') ||
+          urlObj.pathname.startsWith('/shorts/') ||
+          urlObj.pathname.startsWith('/live/') ||
+          urlObj.pathname.startsWith('/v/')
+        ) {
+          videoId = urlObj.pathname.split('/')[2];
+        }
+
+        if (videoId && !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+          videoId = null;
+        }
+
+        let note = '';
+        if (listId && isNonEmbeddableList(listId)) {
+          if (videoId) {
+            listId = null;
+            note = 'Mix / Personal playlist embed nahi ho sakti — sirf video play kiya ja raha hai.';
+          } else {
+            return { error: 'Mix / Watch Later / Liked playlists embed ke liye available nahi hoti.' };
+          }
+        }
+
+        if (!videoId && !listId) return null;
+
+        return { videoId, listId, index, hasExplicitIndex, startSeconds, note };
+      } catch {
+        return null;
+      }
+    }
+
+    function updateURLParams(paramsMap) {
+      lastAppliedUrlParams = { ...(paramsMap || {}) };
+      if (!isHttpOrigin) return;
+      try {
+        const pageUrl = new URL(window.location.href);
+        pageUrl.search = '';
+        Object.entries(lastAppliedUrlParams).forEach(([key, val]) => {
+          if (val !== null && val !== undefined && val !== '') {
+            pageUrl.searchParams.set(key, String(val));
+          }
+        });
+        window.history.replaceState(window.history.state, '', pageUrl);
+      } catch {
+        // ignore if restricted
+      }
+    }
+
+    /* ------------------------------------------------------------------
+       Media Loading
+    ------------------------------------------------------------------ */
+    function loadMedia(parsed) {
+      showStatus(parsed.note || '', Boolean(parsed.note), parsed.note ? 'note' : 'none');
+
+      if (!isApiReady) {
+        pendingLoad = parsed;
+        if (!parsed.note) showStatus('Player load ho raha hai...', true, 'loading');
+        return;
+      }
+
+      ensurePlayer();
+
+      if (isPlayerReady) {
+        doLoad(parsed);
+      } else {
+        pendingLoad = parsed;
+        if (!parsed.note) showStatus('Player load ho raha hai...', true, 'loading');
+      }
+    }
+
+    function doLoad(parsed) {
+      stopPlaylistPolling();
+      lastSyncedUrlKey = '';
+      pendingTargetVideoId = null;
+      pendingTargetStartSeconds = 0;
+
+      showStatus(parsed.note || '', Boolean(parsed.note), parsed.note ? 'note' : 'none');
+
+      if (parsed.listId) {
+        activePlaylist = {
+          listId: parsed.listId,
+          currentIndex: parsed.index || 1,
+          totalVideos: 0
+        };
+
+        const needsTargetLookup = Boolean(parsed.videoId && !parsed.hasExplicitIndex);
+        if (needsTargetLookup) {
+          pendingTargetVideoId = parsed.videoId;
+          pendingTargetStartSeconds = parsed.startSeconds || 0;
+        }
+
+        playlistIndexInput.value = activePlaylist.currentIndex;
+        playlistTotalHint.textContent = 'Loading playlist count...';
+        videoCountBadge.textContent = `Video ${activePlaylist.currentIndex} / ...`;
+        currentVideoTitle.textContent = 'Loading playlist...';
+        currentVideoTitle.removeAttribute('title');
+        focusTitleText.textContent = 'Loading playlist...';
+        playlistPanel.style.display = 'block';
+        updatePlaylistControlsUI();
+
+        ytPlayer.loadPlaylist({
+          list: parsed.listId,
+          listType: 'playlist',
+          index: (parsed.index || 1) - 1,
+          startSeconds: needsTargetLookup ? 0 : (parsed.startSeconds || 0)
+        });
+
+        updateURLParams({ list: parsed.listId, index: activePlaylist.currentIndex });
+        startPlaylistPolling();
+      } else {
+        activePlaylist = { listId: null, currentIndex: 1, totalVideos: 0 };
+        playlistPanel.style.display = 'none';
+        videoCountBadge.textContent = 'Single Video';
+        currentVideoTitle.textContent = 'Loading video...';
+        currentVideoTitle.removeAttribute('title');
+        focusTitleText.textContent = 'Loading video...';
+        updatePlaylistControlsUI();
+
+        ytPlayer.loadVideoById({
+          videoId: parsed.videoId,
+          startSeconds: parsed.startSeconds || 0
+        });
+
+        const params = { v: parsed.videoId };
+        if (parsed.startSeconds > 0) params.t = parsed.startSeconds;
+        updateURLParams(params);
+      }
+
+      scheduleAutoplayCheck();
+    }
+
+    /* ------------------------------------------------------------------
+       Playlist Navigation
+    ------------------------------------------------------------------ */
+    function playPlaylistAt(oneBasedIndex) {
+      if (!activePlaylist.listId || !ytPlayer || !isPlayerReady) return;
+
+      let safeIndex = Math.max(1, parseInt(oneBasedIndex, 10) || 1);
+      if (activePlaylist.totalVideos > 0 && activePlaylist.totalVideos < 200 && safeIndex > activePlaylist.totalVideos) {
+        safeIndex = activePlaylist.totalVideos;
+      }
+
+      pendingTargetVideoId = null;
+      activePlaylist.currentIndex = safeIndex;
+      playlistIndexInput.value = safeIndex;
+      updatePlaylistControlsUI();
+
+      const loadedList = typeof ytPlayer.getPlaylist === 'function' ? ytPlayer.getPlaylist() : null;
+      if (typeof ytPlayer.playVideoAt === 'function' && Array.isArray(loadedList) && safeIndex <= loadedList.length) {
+        ytPlayer.playVideoAt(safeIndex - 1);
+      } else {
+        ytPlayer.loadPlaylist({
+          list: activePlaylist.listId,
+          listType: 'playlist',
+          index: safeIndex - 1
+        });
+        startPlaylistPolling();
+      }
+    }
+
+    function jumpToPlaylistIndex() {
+      playPlaylistAt(playlistIndexInput.value);
+    }
+
+    function stepPlaylist(delta) {
+      const target = activePlaylist.currentIndex + delta;
+      if (target < 1) return;
+      if (activePlaylist.totalVideos > 0 && activePlaylist.totalVideos < 200 && target > activePlaylist.totalVideos) return;
+      playPlaylistAt(target);
+    }
+
+    /* ------------------------------------------------------------------
+       User Actions
+    ------------------------------------------------------------------ */
+    function handlePlay() {
+      const parsed = parseYouTubeURL(ytInput.value);
+      if (!parsed) {
+        showStatus('Valid YouTube video ya playlist link paste karein.');
+        return;
+      }
+      if (parsed.error) {
+        showStatus(parsed.error);
+        return;
+      }
+      loadMedia(parsed);
+    }
+
+    async function pasteAndPlay() {
+      try {
+        if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+          throw new Error('clipboard-unavailable');
+        }
+        const text = await navigator.clipboard.readText();
+        if (!text || !text.trim()) {
+          showStatus('Clipboard khali hai.', true);
+          return;
+        }
+        ytInput.value = text.trim();
+        handlePlay();
+      } catch (err) {
+        const denied = err && err.name === 'NotAllowedError';
+        showStatus(
+          denied
+            ? 'Clipboard permission denied — box mein Ctrl+V (ya Paste) karein, auto-play ho jayega.'
+            : 'Auto-paste is browser/origin par available nahi — box mein Ctrl+V (ya Paste) karein.',
+          true
+        );
+        ytInput.focus();
+        ytInput.select();
+      }
+    }
+
+    ytInput.addEventListener('paste', (e) => {
+      const pastedText = (e.clipboardData || window.clipboardData)?.getData('text');
+      if (pastedText && pastedText.trim()) {
+        e.preventDefault();
+        ytInput.value = pastedText.trim();
+        handlePlay();
+      }
+    });
+
+    function clearPlayer() {
+      ytInput.value = '';
+      showStatus('');
+      stopPlaylistPolling();
+      clearTimeout(autoplayCheckTimer);
+      pendingLoad = null;
+      pendingTargetVideoId = null;
+      pendingTargetStartSeconds = 0;
+      lastSyncedUrlKey = '';
+
+      const wasInFocus = document.body.classList.contains('focus-mode');
+      if (wasInFocus) {
+        setFocusMode(false, {});
+      }
+
+      try {
+        if (ytPlayer && typeof ytPlayer.destroy === 'function') {
+          ytPlayer.destroy();
+        }
+      } catch { /* ignore */ }
+
+      ytPlayer = null;
+      isPlayerReady = false;
+      ensurePlayerMount();
+
+      activePlaylist = { listId: null, currentIndex: 1, totalVideos: 0 };
+      playlistPanel.style.display = 'none';
+      playlistIndexInput.value = 1;
+      playlistTotalHint.textContent = 'Total videos: —';
+      videoCountBadge.textContent = 'Ready';
+      currentVideoTitle.textContent = 'Koi bhi video ya playlist link paste karein';
+      currentVideoTitle.removeAttribute('title');
+      focusTitleText.textContent = 'Focus Mode';
+      updatePlaylistControlsUI();
+      if (!wasInFocus) {
+        updateURLParams({});
+      } else {
+        lastAppliedUrlParams = {};
+      }
+    }
+
+    /* ------------------------------------------------------------------
+       View Modes (Theater, Focus with Android Back Support, Fullscreen)
+    ------------------------------------------------------------------ */
+    function toggleTheaterMode() {
+      if (document.body.classList.contains('focus-mode')) {
+        setFocusMode(false);
+      }
+      const isTheater = document.body.classList.toggle('theater-mode');
+      theaterBtn.classList.toggle('active-toggle', isTheater);
+      theaterBtn.textContent = isTheater ? 'Default View' : 'Theater Mode';
+    }
+
+    function applyFocusModeUI(enable) {
+      document.body.classList.toggle('focus-mode', enable);
+    }
+
+    function setFocusMode(enable, overrideParamsAfterPop = null) {
+      const shouldEnable = !!enable;
+      const isCurrentlyFocus = document.body.classList.contains('focus-mode');
+      if (shouldEnable === isCurrentlyFocus) return;
+
+      if (shouldEnable) {
+        applyFocusModeUI(true);
+        if (isHttpOrigin) {
+          try {
+            window.history.pushState({ focusTubeMode: true }, '');
+            hasFocusHistoryEntry = true;
+          } catch {
+            hasFocusHistoryEntry = false;
+          }
+        }
+      } else {
+        applyFocusModeUI(false);
+        if (hasFocusHistoryEntry && isHttpOrigin) {
+          hasFocusHistoryEntry = false;
+          try {
+            if (window.history.state && window.history.state.focusTubeMode) {
+              pendingUrlParamsAfterPop = overrideParamsAfterPop !== null
+                ? { ...overrideParamsAfterPop }
+                : { ...lastAppliedUrlParams };
+              window.history.back();
+            } else if (overrideParamsAfterPop !== null) {
+              updateURLParams(overrideParamsAfterPop);
+            }
+          } catch { /* ignore */ }
+        } else if (overrideParamsAfterPop !== null) {
+          updateURLParams(overrideParamsAfterPop);
+        }
+      }
+    }
+
+    window.addEventListener('popstate', () => {
+      if (document.body.classList.contains('focus-mode')) {
+        hasFocusHistoryEntry = false;
+        applyFocusModeUI(false);
+        // Keep URL synced with whatever video/playlist index is currently playing
+        updateURLParams(lastAppliedUrlParams);
+      } else if (pendingUrlParamsAfterPop !== null) {
+        const paramsToRestore = pendingUrlParamsAfterPop;
+        pendingUrlParamsAfterPop = null;
+        updateURLParams(paramsToRestore);
+      }
+    });
+
+    async function toggleNativeFullscreen() {
+      const fsElement = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fsElement) {
+        try {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } catch { /* ignore */ }
+        return;
+      }
+
+      try {
+        if (playerWrapper.requestFullscreen) {
+          await playerWrapper.requestFullscreen();
+        } else if (playerWrapper.webkitRequestFullscreen) {
+          playerWrapper.webkitRequestFullscreen();
+        } else {
+          showStatus('Is browser mein video ke andar wala Fullscreen icon use karein.', true);
+        }
+      } catch {
+        showStatus('Fullscreen start nahi ho paya — video player ke andar wala Fullscreen icon tap karein.', true);
+      }
+    }
+
+    function syncFullscreenBtnLabel() {
+      const active = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+      fullscreenBtn.textContent = active ? 'Exit Fullscreen' : 'Fullscreen';
+      fullscreenBtn.classList.toggle('active-toggle', active);
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreenBtnLabel);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenBtnLabel);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.body.classList.contains('focus-mode')) {
+        setFocusMode(false);
+      }
+    });
+
+    ytInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handlePlay();
+      }
+    });
+
+    playlistIndexInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        jumpToPlaylistIndex();
+      }
+    });
+
+    /* ------------------------------------------------------------------
+       Boot: Protocol Check & URL State Restore
+    ------------------------------------------------------------------ */
+    function initFromURL() {
+      if (!isHttpOrigin) {
+        showStatus('Tip: file:// se YouTube Error 153 aa sakta hai — isse local server (http://localhost) ya HTTPS par kholein.', true);
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('v');
+      const list = params.get('list');
+      const index = params.get('index');
+      const t = params.get('t') || params.get('start');
+
+      if (!v && !list) return;
+
+      const targetUrl = v
+        ? new URL('https://www.youtube.com/watch')
+        : new URL('https://www.youtube.com/playlist');
+
+      if (v) targetUrl.searchParams.set('v', v);
+      if (list) targetUrl.searchParams.set('list', list);
+      if (index) targetUrl.searchParams.set('index', index);
+      if (t) targetUrl.searchParams.set('t', t);
+
+      ytInput.value = targetUrl.toString();
+      const parsed = parseYouTubeURL(ytInput.value);
+      if (parsed && !parsed.error) loadMedia(parsed);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initFromURL);
+    } else {
+      initFromURL();
+    }
+
+    if (window.YT && window.YT.Player) {
+      onYouTubeIframeAPIReady();
+    }
+
+    apiTimeout = setTimeout(() => {
+      if (!isApiReady) {
+        showStatus('YouTube player load nahi hua. Internet / ad-blocker check karein, aur page ko http:// ya https:// se kholein.', true);
+      }
+    }, 8000);
+  </script>
+</body>
+</html>
